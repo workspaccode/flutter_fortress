@@ -57,7 +57,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  DeviceIntegrityStatus? _integrityStatus;
+  DeviceIntegrityResult? _integrityStatus;
   bool _isLoading = false;
   late StreamSubscription<ThreatEvent> _subscription;
 
