@@ -3,15 +3,13 @@ description: "Production-ready Runtime Application Self-Protection (RASP) for Fl
 version: 0.1.0
 homepage: https://github.com/example/flutter_fortress
 repository: https://github.com/example/flutter_fortress
-issue_tracker: https://github.com/example/flutter_fortress/issues
+issue_tracker: https://github.com/workspaccode/flutter_fortress/issues
 topics:
   - security
   - rasp
   - flutter-security
   - ssl-pinning
   - anti-tamper
-  - root-detection
-  - jailbreak-detection
 
 environment:
   sdk: ^3.12.1
