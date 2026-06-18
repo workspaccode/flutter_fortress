@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import '../flutter_fortress_platform_interface.dart';
 import 'threat_event.dart';
 import 'fortress_policy.dart';
 import 'utils/fortress_logger.dart';
 
 class FortressGuard {
-  static const MethodChannel _methodChannel = MethodChannel('flutter_fortress');
   static const EventChannel _eventChannel = EventChannel('flutter_fortress_events');
 
   static final FortressGuard _instance = FortressGuard._internal();
@@ -27,8 +27,7 @@ class FortressGuard {
     _instance._onThreatCallback = onThreat;
     _instance._startListening();
     FortressLogger.info('FortressGuard initialized.');
-    
-    // Proactively check device integrity at startup
+
     await checkDeviceIntegrity();
   }
 
@@ -64,47 +63,62 @@ class FortressGuard {
     );
   }
 
-  /// Manually checks root, jailbreak, emulator status, or signature integrity
-  static Future<DeviceIntegrityStatus> checkDeviceIntegrity() async {
+  static Future<Map<String, dynamic>> requestPlayIntegrity({
+    int cloudProjectNumber = 0,
+  }) async {
     try {
-      final Map? status = await _methodChannel.invokeMethod('checkDeviceIntegrity');
-      if (status != null) {
-        final isRooted = status['isRooted'] as bool? ?? false;
-        final isEmulator = status['isEmulator'] as bool? ?? false;
-        final isTampered = status['isTampered'] as bool? ?? false;
+      return await FlutterFortressPlatform.instance.requestPlayIntegrity(
+        cloudProjectNumber: cloudProjectNumber,
+      );
+    } on PlatformException catch (e) {
+      FortressLogger.error('Play Integrity check failed', e);
+    }
+    return {'verified': false, 'error': 'Platform call failed'};
+  }
 
-        if (isRooted) {
-          _instance.handleThreat(ThreatEvent(
-            type: Platform.isAndroid ? ThreatType.root : ThreatType.jailbreak,
-            message: 'Device security check failed: Root/Jailbreak detected.',
-          ));
-        }
-        if (isEmulator) {
-          _instance.handleThreat(ThreatEvent(
-            type: ThreatType.emulator,
-            message: 'Device security check failed: Emulator environment detected.',
-          ));
-        }
-        if (isTampered) {
-          _instance.handleThreat(ThreatEvent(
-            type: ThreatType.tamper,
-            message: 'Device security check failed: App signature tamper detected.',
-          ));
-        }
+  static Future<bool> requestDeviceCheck() async {
+    try {
+      return await FlutterFortressPlatform.instance.requestDeviceCheck();
+    } on PlatformException catch (e) {
+      FortressLogger.error('DeviceCheck failed', e);
+    }
+    return false;
+  }
 
-        return DeviceIntegrityStatus(
-          isRooted: isRooted,
-          isEmulator: isEmulator,
-          isTampered: isTampered,
-        );
+  static Future<DeviceIntegrityResult> checkDeviceIntegrity() async {
+    try {
+      final status = await FlutterFortressPlatform.instance.checkDeviceIntegrity();
+
+      if (status.isRooted) {
+        _instance.handleThreat(ThreatEvent(
+          type: Platform.isAndroid ? ThreatType.root : ThreatType.jailbreak,
+          message: 'Device security check failed: Root/Jailbreak detected.',
+        ));
       }
+      if (status.isEmulator) {
+        _instance.handleThreat(ThreatEvent(
+          type: ThreatType.emulator,
+          message: 'Device security check failed: Emulator environment detected.',
+        ));
+      }
+      if (status.isTampered) {
+        _instance.handleThreat(ThreatEvent(
+          type: ThreatType.tamper,
+          message: 'Device security check failed: App signature tamper detected.',
+        ));
+      }
+
+      return status;
     } on PlatformException catch (e) {
       FortressLogger.error('Failed checking device integrity', e);
     }
-    return const DeviceIntegrityStatus(isRooted: false, isEmulator: false, isTampered: false);
+    return const DeviceIntegrityResult(
+      isRooted: false,
+      isEmulator: false,
+      isTampered: false,
+    );
   }
 
-  /// Processes threat event according to active policy
   void handleThreat(ThreatEvent event) {
     FortressLogger.warn('Security threat triggered: ${event.type.name} - ${event.message}');
     _threatController.add(event);
@@ -117,27 +131,10 @@ class FortressGuard {
     }
   }
 
-  /// Wipes active context details and closes the process
   static void kill() {
-    // Graceful exit triggers
     SystemChannels.platform.invokeMethod('SystemNavigator.pop');
-    // Hard exit fallback
     Future.delayed(const Duration(milliseconds: 200), () {
       exit(0);
     });
   }
-}
-
-class DeviceIntegrityStatus {
-  final bool isRooted;
-  final bool isEmulator;
-  final bool isTampered;
-
-  const DeviceIntegrityStatus({
-    required this.isRooted,
-    required this.isEmulator,
-    required this.isTampered,
-  });
-
-  bool get isTrusted => !isRooted && !isEmulator && !isTampered;
 }

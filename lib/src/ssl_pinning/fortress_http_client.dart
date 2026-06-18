@@ -4,8 +4,13 @@ import 'package:dio/io.dart';
 import 'pinning_interceptor.dart';
 
 class FortressHttpClient {
-  /// Factory method to return a pre-configured [Dio] client with SSL Public Key pinning.
-  static Dio create({
+  final Dio _dio;
+
+  Dio get dio => _dio;
+
+  FortressHttpClient._(this._dio);
+
+  factory FortressHttpClient({
     required List<String> pinnedKeys,
     bool allowBadCertificates = false,
   }) {
@@ -14,19 +19,16 @@ class FortressHttpClient {
 
     dio.interceptors.add(interceptor);
 
-    // Attach HttpClientAdapter certificate override
     dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        
+
         client.badCertificateCallback = (X509Certificate cert, String host, int port) {
           if (allowBadCertificates) return true;
-          // Validate self-signed/expired/custom CA certificates via pinning hash verification
           return interceptor.verifyCertificate(cert.der);
         };
 
-        // Standard connection check
-        client.keyLog = (line) {}; // empty debug logs
+        client.keyLog = (line) {};
 
         return client;
       },
@@ -36,6 +38,46 @@ class FortressHttpClient {
       },
     );
 
-    return dio;
+    return FortressHttpClient._(dio);
   }
+
+  static Dio create({
+    required List<String> pinnedKeys,
+    bool allowBadCertificates = false,
+  }) =>
+      FortressHttpClient(
+        pinnedKeys: pinnedKeys,
+        allowBadCertificates: allowBadCertificates,
+      ).dio;
+
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) =>
+      _dio.get<T>(path, queryParameters: queryParameters, options: options);
+
+  Future<Response<T>> post<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) =>
+      _dio.post<T>(path, data: data, queryParameters: queryParameters, options: options);
+
+  Future<Response<T>> put<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) =>
+      _dio.put<T>(path, data: data, queryParameters: queryParameters, options: options);
+
+  Future<Response<T>> delete<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) =>
+      _dio.delete<T>(path, data: data, queryParameters: queryParameters, options: options);
 }

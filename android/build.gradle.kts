@@ -46,6 +46,7 @@ android {
 
     defaultConfig {
         minSdk = 24
+        consumerProguardFiles("proguard-rules.pro")
     }
 
     testOptions {
@@ -72,6 +73,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.google.android.play:integrity:1.4.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

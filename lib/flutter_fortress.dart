@@ -6,3 +6,4 @@ export 'src/ssl_pinning/pinning_interceptor.dart';
 export 'src/secure_screen/secure_screen.dart';
 export 'src/secure_screen/fortress_monitor.dart';
 export 'src/utils/fortress_logger.dart';
+export 'flutter_fortress_platform_interface.dart' show DeviceIntegrityResult;

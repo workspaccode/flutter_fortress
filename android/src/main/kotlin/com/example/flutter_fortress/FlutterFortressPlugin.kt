@@ -30,9 +30,12 @@ class FlutterFortressPlugin :
     private var threadRunning = false
     private val fridaCheckRunnable = object : Runnable {
         override fun run() {
-            if (FridaDetector.isFridaDetected()) {
-                sendThreatEvent("hooking", "Frida hooking agent detected.")
-            }
+                if (FridaDetector.isFridaDetected()) {
+                    sendThreatEvent("hooking", "Frida hooking agent detected.")
+                }
+                if (AntiDebug.isDebuggerAttached()) {
+                    sendThreatEvent("hooking", "Debugger attachment detected.")
+                }
             if (threadRunning) {
                 handler.postDelayed(this, 3000)
             }
@@ -70,7 +73,7 @@ class FlutterFortressPlugin :
                 val context = bindingContext
                 if (context != null) {
                     val status = mapOf(
-                        "isRooted" to RootDetector.isDeviceRooted(),
+                        "isRooted" to (RootDetector.isDeviceRooted() || MagiskDetector.isMagiskPresent()),
                         "isEmulator" to EmulatorDetector.isRunningOnEmulator(),
                         "isTampered" to IntegrityChecker.isAppTampered(context, expectedSignatureHash)
                     )
@@ -87,6 +90,21 @@ class FlutterFortressPlugin :
                 val secure = call.argument<Boolean>("secure") ?: false
                 setFlagSecure(secure)
                 result.success(null)
+            }
+            "requestPlayIntegrity" -> {
+                val context = bindingContext
+                if (context != null) {
+                    val cloudProjectNumber = call.argument<Long>("cloudProjectNumber") ?: 0L
+                    PlayIntegrityChecker.requestIntegrityToken(context, cloudProjectNumber) { success, message ->
+                        if (success) {
+                            result.success(mapOf("verified" to true, "token" to (message ?: "")))
+                        } else {
+                            result.success(mapOf("verified" to false, "error" to (message ?: "Unknown")))
+                        }
+                    }
+                } else {
+                    result.success(mapOf("verified" to false, "error" to "Context is null"))
+                }
             }
             else -> {
                 result.notImplemented()
